@@ -112,6 +112,8 @@ var nodeMetrics = []string{
 	"node_load5",
 	"node_load15",
 	"node_pod_abnormal_ratio",
+	"node_gpu_utilisation",
+	"node_gpu_memory_utilisation",
 	"node_gpu_total",
 	"node_gpu_usage",
 }
@@ -333,8 +335,8 @@ var metricsPromqlMap = map[string]string{
 	"cluster_load15":                     `sum(node_load15{job="node-exporter"}) / sum(node:node_num_cpu:sum)`,
 	"cluster_pod_abnormal_ratio":         `cluster:pod_abnormal:ratio`,
 	"cluster_node_offline_ratio":         `cluster:node_offline:ratio`,
-	"cluster_gpu_total":				  `count(count((container_accelerator_memory_total_bytes{job="cadvsior", namespace="kube-system"}))by(acc_id))`,
-	"cluster_gpu_usage":				  `count(count((container_accelerator_memory_total_bytes{job="cadvsior", namespace!="kube-system"}))by(acc_id))`,
+	"cluster_gpu_total":				  `count(count((container_accelerator_memory_total_bytes{job="cadvsior", namespace="kube-system", pod_name!=""}))by(acc_id))`,
+	"cluster_gpu_usage":				  `count(count((container_accelerator_memory_total_bytes{job="cadvsior", namespace!="kube-system", pod_name!="", namespace!="monitoring"}))by(acc_id))`,
 
 
 	//node
@@ -369,11 +371,13 @@ var metricsPromqlMap = map[string]string{
 	"node_load5":                  `node:load5:ratio{$1}`,
 	"node_load15":                 `node:load15:ratio{$1}`,
 	"node_pod_abnormal_ratio":     `node:pod_abnormal:ratio{$1}`,
-	"node_gpu_total":              `count(count((container_accelerator_memory_total_bytes{job="cadvsior", namespace="kube-system", $1}))by(acc_id))`,
-	"node_gpu_usage":              `count(count((container_accelerator_memory_total_bytes{job="cadvsior", namespace!="kube-system", $1}))by(acc_id))`,
+	"node_gpu_utilisation":        `container_accelerator_duty_cycle{job="cadvsior", namespace!="kube-system", namespace!="monitoring", pod_name!="", $1}`,
+	"node_gpu_memory_utilisation": `container_accelerator_memory_used_bytes{job="cadvsior", namespace!="kube-system", namespace!="monitoring", pod_name!="", $1}/container_accelerator_memory_total_bytes{job="cadvsior", namespace!="kube-system", namespace!="monitoring", pod_name!="", $1}`,
+	"node_gpu_total":              `node:node_num_gpu:total`,
+	"node_gpu_usage":              `node:node_num_gpu:usage`,
 
 	// workspace
-	"workspace_gpu_usage":                  `namespace:container_gpu_usage:count{namespace!="", $1}`,
+	"workspace_gpu_usage":                  `namespace:container_gpu_usage:count{namespace!="", namespace!="kube-system", $1}`,
 	"workspace_cpu_usage":                  `round(sum by (label_kubesphere_io_workspace) (namespace:container_cpu_usage_seconds_total:sum_rate{namespace!="", $1}), 0.001)`,
 	"workspace_memory_usage":               `sum by (label_kubesphere_io_workspace) (namespace:container_memory_usage_bytes:sum{namespace!="", $1})`,
 	"workspace_memory_usage_wo_cache":      `sum by (label_kubesphere_io_workspace) (namespace:container_memory_usage_bytes_wo_cache:sum{namespace!="", $1})`,
@@ -398,7 +402,7 @@ var metricsPromqlMap = map[string]string{
 	"workspace_pod_abnormal_ratio":         `count by (label_kubesphere_io_workspace) ((kube_pod_info{node!=""} unless on (pod, namespace) (kube_pod_status_phase{job="kube-state-metrics", phase="Succeeded"}>0) unless on (pod, namespace) ((kube_pod_status_ready{job="kube-state-metrics", condition="true"}>0) and on (pod, namespace) (kube_pod_status_phase{job="kube-state-metrics", phase="Running"}>0)) unless on (pod, namespace) (kube_pod_container_status_waiting_reason{job="kube-state-metrics", reason="ContainerCreating"}>0)) * on (namespace) group_left(label_kubesphere_io_workspace) kube_namespace_labels{$1}) / sum by (label_kubesphere_io_workspace) (kube_pod_status_phase{phase!="Succeeded", namespace!=""} * on (namespace) group_left(label_kubesphere_io_workspace)(kube_namespace_labels{$1}))`,
 
 	//namespace
-	"namespace_gpu_usage":                  `count(count((container_accelerator_memory_total_bytes{job="cadvsior", container_name!="POD", namespace!="kube-system", container_name!="", $1}))by(acc_id))`,	// gpu 使用了多少个
+	"namespace_gpu_usage":                  `count by (namespace) (container_accelerator_memory_total_bytes{job="cadvsior", namespace !="kube-system", pod_name!=""})`,	// gpu 使用了多少个
 	"namespace_cpu_usage":                  `round(namespace:container_cpu_usage_seconds_total:sum_rate{namespace!="", $1}, 0.001)`,
 	"namespace_memory_usage":               `namespace:container_memory_usage_bytes:sum{namespace!="", $1}`,
 	"namespace_memory_usage_wo_cache":      `namespace:container_memory_usage_bytes_wo_cache:sum{namespace!="", $1}`,
